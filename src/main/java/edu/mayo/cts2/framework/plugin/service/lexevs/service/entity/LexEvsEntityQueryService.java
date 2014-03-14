@@ -17,6 +17,12 @@ import java.util.Set;
 
 import javax.annotation.Resource;
 
+import edu.mayo.cts2.framework.filter.match.StateAdjustingComponentReference;
+import edu.mayo.cts2.framework.filter.match.StateAdjustingComponentReference.StateUpdater;
+import edu.mayo.cts2.framework.model.command.ResolvedFilter;
+import edu.mayo.cts2.framework.model.core.ModelAttributeReference;
+import edu.mayo.cts2.framework.model.core.URIAndEntityName;
+import edu.mayo.cts2.framework.service.meta.StandardModelAttributeReference;
 import org.LexGrid.LexBIG.DataModel.Core.ConceptReference;
 import org.LexGrid.LexBIG.Exceptions.LBInvocationException;
 import org.LexGrid.LexBIG.Exceptions.LBParameterException;
@@ -24,6 +30,8 @@ import org.LexGrid.LexBIG.Exceptions.LBResourceUnavailableException;
 import org.LexGrid.LexBIG.LexBIGService.CodedNodeSet;
 import org.LexGrid.LexBIG.LexBIGService.LexBIGService;
 import org.LexGrid.LexBIG.Utility.Iterators.ResolvedConceptReferencesIterator;
+import org.apache.commons.lang.StringUtils;
+import org.apache.lucene.queryParser.QueryParser;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
@@ -167,7 +175,7 @@ public class LexEvsEntityQueryService extends AbstractLexEvsService
 	}
 
 	@Override
-	public DirectoryResult<EntityDirectoryEntry> getResourceSummaries(EntityDescriptionQuery query, SortCriteria sortCriteria, Page page) {	
+	public DirectoryResult<EntityDirectoryEntry> getResourceSummaries(EntityDescriptionQuery query, SortCriteria sortCriteria, Page page) {
 		
 		LexBIGService lexBigService = this.getLexBigService();
 		
@@ -189,8 +197,19 @@ public class LexEvsEntityQueryService extends AbstractLexEvsService
 	
 	@Override
 	public Set<? extends ComponentReference> getSupportedSearchReferences() {
-		return CommonSearchFilterUtils.getLexSupportedSearchReferences();
+        Set<ComponentReference> set = CommonSearchFilterUtils.getLexSupportedSearchReferences();
+        ComponentReference cr = new ComponentReference();
+        cr.setAttributeReference("conceptCode");
+        set.add(StateAdjustingComponentReference.toComponentReference(cr, CONCEPT_CODE_STATE_UPDATER));
+		return set;
 	}
+
+    private StateUpdater<String> CONCEPT_CODE_STATE_UPDATER = new AbstractStateUpdater(){
+        @Override
+        protected String decorate(String string, MatchAlgorithmReference matchAlgorithm) {
+            return "conceptCode:" + QueryParser.escape(string);
+        }
+    };
 
 	@Override
 	public Set<VersionTagReference> getSupportedTags() {
@@ -236,13 +255,46 @@ public class LexEvsEntityQueryService extends AbstractLexEvsService
 		//this can handle all QueryTypes, so we don't check that.
 		return query.getEntitiesFromAssociationsQuery() == null &&
 				query.getRestrictions().getHierarchyRestriction() == null &&
-				query.getRestrictions().getCodeSystemVersions().size() == 1;
+				query.getRestrictions().getCodeSystemVersions().size() == 1 &&
+                this.checkComponents(query.getFilterComponent());
 	}
+
+    private boolean checkComponents(Set<ResolvedFilter> filters) {
+        for (ResolvedFilter filter : filters) {
+            boolean found = false;
+            for (ComponentReference cr : getSupportedSearchReferences()) {
+                found = false;
+                if (filter.getComponentReference().getChoiceValue().equals(cr.getChoiceValue().toString())) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) return found;
+        }
+        return true;
+    }
 
 	@Override
 	public int getOrder() {
 		return 1;
 	}
+
+    private abstract class AbstractStateUpdater implements StateUpdater<String>{
+
+        @Override
+        public String updateState(
+          String currentState,
+          MatchAlgorithmReference matchAlgorithm,
+          String queryString) {
+            String andOrBlank = "";
+            if(StringUtils.isNotBlank(currentState)){
+                andOrBlank = " AND ";
+            }
+            return currentState + andOrBlank + decorate(queryString, matchAlgorithm);
+        }
+
+        protected abstract String decorate(String queryString, MatchAlgorithmReference matchAlgorithm);
+    };
 
 }
 

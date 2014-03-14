@@ -18,6 +18,7 @@ import java.util.Set;
 import org.LexGrid.LexBIG.DataModel.Collections.CodingSchemeRenderingList;
 import org.LexGrid.LexBIG.DataModel.Collections.CodingSchemeTagList;
 import org.LexGrid.LexBIG.DataModel.Collections.ConceptReferenceList;
+import org.LexGrid.LexBIG.DataModel.Collections.LocalNameList;
 import org.LexGrid.LexBIG.DataModel.Core.CodingSchemeSummary;
 import org.LexGrid.LexBIG.DataModel.Core.ConceptReference;
 import org.LexGrid.LexBIG.DataModel.Core.types.CodingSchemeVersionStatus;
@@ -209,27 +210,53 @@ public final class CommonSearchFilterUtils {
 	public static CodedNodeSet filterLexCodedNodeSet(
 			CodedNodeSet lexCodedNodeSet,
 			ResolvedFilter cts2Filter){
-		String cts2MatchValue = null;
-		String cts2MatchAlgorithm = null;
-	
-		if(cts2Filter != null){
-			cts2MatchValue = cts2Filter.getMatchValue();										// Value to search with 
-			cts2MatchAlgorithm = cts2Filter.getMatchAlgorithmReference().getContent();			// Extract from filter the match algorithm to use
-		}	
-		SearchDesignationOption lexSearchOption = SearchDesignationOption.ALL;					// Other options: PREFERRED_ONLY, NON_PREFERRED_ONLY, ALL 
-		String lexLanguage = null;																// This field is not really used, uses default "en"
-		
-		try {
-			lexCodedNodeSet = lexCodedNodeSet.restrictToMatchingDesignations(cts2MatchValue, lexSearchOption, cts2MatchAlgorithm, lexLanguage);
-		} catch (LBInvocationException e) {
-			throw new RuntimeException(e);
-		} catch (LBParameterException e) {
-			throw new RuntimeException(e);
-		}
-		
-		return lexCodedNodeSet;
+
+        if (cts2Filter.getComponentReference() != null &&
+          cts2Filter.getComponentReference().getChoiceValue() != null &&
+          ((String) cts2Filter.getComponentReference().getChoiceValue()).equalsIgnoreCase("conceptCode")){
+            return filterLexCodedNodeSetByCode(lexCodedNodeSet, cts2Filter);
+        } else {
+
+            String cts2MatchValue = null;
+            String cts2MatchAlgorithm = null;
+
+            if(cts2Filter != null){
+                cts2MatchValue = cts2Filter.getMatchValue();										// Value to search with
+                cts2MatchAlgorithm = cts2Filter.getMatchAlgorithmReference().getContent();			// Extract from filter the match algorithm to use
+            }
+            SearchDesignationOption lexSearchOption = SearchDesignationOption.ALL;					// Other options: PREFERRED_ONLY, NON_PREFERRED_ONLY, ALL
+            String lexLanguage = null;																// This field is not really used, uses default "en"
+
+            try {
+                lexCodedNodeSet = lexCodedNodeSet.restrictToMatchingDesignations(cts2MatchValue, lexSearchOption, cts2MatchAlgorithm, lexLanguage);
+            } catch (LBInvocationException e) {
+                throw new RuntimeException(e);
+            } catch (LBParameterException e) {
+                throw new RuntimeException(e);
+            }
+
+            return lexCodedNodeSet;
+        }
 	}
 
+    public static CodedNodeSet filterLexCodedNodeSetByCode(
+      CodedNodeSet lexCodedNodeSet,
+      ResolvedFilter cts2Filter) {
+        LocalNameList nameList = new LocalNameList();
+        nameList.addEntry("conceptCode");
+        String matchText = cts2Filter.getMatchValue();
+        String language = null;
+        CodedNodeSet.PropertyType[] propertyTypes = null;
+        try {
+            lexCodedNodeSet = lexCodedNodeSet.restrictToMatchingProperties(nameList, propertyTypes, matchText, "RegExp", language);
+        } catch (LBInvocationException e) {
+            throw new RuntimeException(e);
+        } catch (LBParameterException e) {
+            throw new RuntimeException(e);
+        }
+
+        return lexCodedNodeSet;
+    }
 	
 	public static CodedNodeSet filterLexCodedNodeSet(
 			CodedNodeSet lexCodedNodeSet,
@@ -413,5 +440,5 @@ public final class CommonSearchFilterUtils {
 		}
 		
 		return returnList;
-	}	
+	}
 }

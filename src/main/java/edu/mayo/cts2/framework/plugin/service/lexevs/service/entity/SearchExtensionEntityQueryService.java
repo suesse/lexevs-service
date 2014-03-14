@@ -360,9 +360,25 @@ public class SearchExtensionEntityQueryService
 				!queryType.equals(QueryType.LIST) &&
 				query.getEntitiesFromAssociationsQuery() == null &&
 				query.getRestrictions().getHierarchyRestriction() == null &&
-				this.checkFilters(query.getFilterComponent());
+				this.checkFilters(query.getFilterComponent()) &&
+                this.checkComponents(query.getFilterComponent());
 	}
-		
+
+    private boolean checkComponents(Set<ResolvedFilter> filters) {
+        for (ResolvedFilter filter : filters) {
+            boolean found = false;
+            for (ComponentReference cr : getSupportedSearchReferences()) {
+                found = false;
+                if (filter.getComponentReference().getChoiceValue().equals(cr.getChoiceValue().toString())) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) return found;
+        }
+        return true;
+    }
+
 	private boolean checkFilters(Set<ResolvedFilter> filters) {
 		 for(ResolvedFilter filter : filters){
 			 if(filter.getMatchAlgorithmReference().
