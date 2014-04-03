@@ -21,6 +21,10 @@ import org.apache.log4j.Logger;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.FactoryBean;
 
+import javax.naming.Context;
+import javax.naming.InitialContext;
+import javax.naming.NamingException;
+
 /**
  * A factory for creating LexBigService objects.
  */
@@ -88,11 +92,16 @@ public class LexBigServiceFactory implements FactoryBean<LexBIGService>, Disposa
 	}
 	
 	public void updateCallback(Map<String,?> properties){
-		this.lexevsRemoteApiUrl = (String)properties.get("lexevsRemoteApiUrl");
-		this.lgConfigFile = (String)properties.get(LG_CONFIG_FILE_ENV);
-		this.useRemoteApi = BooleanUtils.toBoolean(properties.get("useRemoteApi").toString());
-		
-		this.hasBeenConfigured = true;
+        try {
+            Context context = (Context) new InitialContext().lookup("java:/comp/env");
+            this.lexevsRemoteApiUrl = (String) context.lookup("lexevsRemoteApiUrl");
+            this.lgConfigFile = (String) context.lookup("lexevsConfigFile");
+            this.useRemoteApi = (Boolean) context.lookup("lexevsRemoteApi");
+
+            this.hasBeenConfigured = true;
+        } catch (NamingException ne) {
+            log.fatal("Unable to get the configuration from the context.", ne);
+        }
 	}
 
 	public String getLexevsRemoteApiUrl() {

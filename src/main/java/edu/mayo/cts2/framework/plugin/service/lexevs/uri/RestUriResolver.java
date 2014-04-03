@@ -12,12 +12,18 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import clojure.lang.RT;
 import clojure.lang.Var;
+
+import javax.naming.Context;
+import javax.naming.InitialContext;
+import javax.naming.NamingException;
 
 /**
  * Client service based on an external URI Resolver JSON Service.
@@ -27,8 +33,9 @@ import clojure.lang.Var;
 @Component
 public class RestUriResolver implements UriResolver, InitializingBean {
 
-	@Value("${uriResolutionServiceUrl}")
 	private String uriResolutionServiceUrl;
+
+    protected Logger logger = Logger.getLogger(this.getClass());
 	
 	Var getUri;
 	Var getName;
@@ -39,6 +46,12 @@ public class RestUriResolver implements UriResolver, InitializingBean {
 	
 	public RestUriResolver(){
 		super();
+        try {
+            Context context = (Context) new InitialContext().lookup("java:/comp/env");
+            this.uriResolutionServiceUrl = (String) context.lookup("uriResolverUrl");
+        } catch (NamingException ne) {
+            logger.fatal("Unable to get the URI Resolver URL from the environment context.", ne);
+        }
 	}
 
 	/**
